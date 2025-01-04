@@ -19,7 +19,6 @@
 
 unsigned long start_time = 0; 
 unsigned long end_time = 0; 
-unsigned long previous_time = 0; 
 unsigned long current_time = 0;
 
 bool start_triggered = false;
@@ -87,23 +86,10 @@ void loop() {
       
       // 計測結果算出
       current_time = end_time - start_time; // マイクロ秒単位の計測時間
-      // 必要に応じてミリ秒変換
-      // double current_ms = (double)current_time / 1000.0;
-      
-      // CSV出力
-      // long difference = (previous_time == 0) ? 0 : (current_time - previous_time);
-      // Serial.print(current_time);
-      // Serial.print(",");
-      // Serial.print(previous_time);
-      // Serial.print(",");
-      // Serial.println(difference);
       Serial.print("goal,");
       Serial.println(current_time);
       M5.Lcd.print("goal,");
       M5.Lcd.println(current_time);
-      
-      // 前回時間を更新
-      previous_time = current_time;
       
       // 次回計測に備えてフラグリセット（ライン外れなどで再走行する場合は、改めてスタートライン通過が必要）
       start_triggered = false;
