@@ -95,9 +95,10 @@ async function readLoop() {
  */
 function handleDeviceMessage(msg) {
   if (msg === "start") {
-    // もし既に走行中なら、ゴールせずに再度スタートが来たということなのでリセット
+    // もし既に走行中ならゴールしないまま再度スタートが来た、ということなので
+    // ラップ記録しない (recordLap=false) でストップウォッチを停止
     if (isRunning) {
-      stopStopwatch();
+      stopStopwatch(undefined, false); 
     }
     startStopwatch();
   } else if (msg.startsWith("goal,")) {
@@ -107,7 +108,8 @@ function handleDeviceMessage(msg) {
       // ミリ秒に変換する (1 ms = 1000 μs)
       const intervalUs = parseInt(parts[1], 10); // μs
       const intervalMs = intervalUs / 1000;      // ms
-      stopStopwatch(intervalMs);
+      // ゴールが確定したタイムなのでラップ記録する (recordLap=true)
+      stopStopwatch(intervalMs, true);
     }
   }
 }
@@ -116,7 +118,9 @@ function handleDeviceMessage(msg) {
    ストップウォッチロジック
 ----------------------------------- */
 
-// 計測開始
+/**
+ * ストップウォッチ開始
+ */
 function startStopwatch() {
   isRunning = true;
   startTime = Date.now();
@@ -131,26 +135,34 @@ function startStopwatch() {
   }, 100);
 }
 
-// 計測終了
-// goalMs が指定されていれば、ゴール時にデバイスから通知された区間時間(ミリ秒)を用いる
-function stopStopwatch(goalMs) {
+/**
+ * ストップウォッチ終了
+ * @param {number|undefined} goalMs ゴール時間(ミリ秒) 省略時は Date.now() - startTime
+ * @param {boolean} recordLap ラップタイムとして記録するかどうか (true/false)
+ */
+function stopStopwatch(goalMs, recordLap = true) {
   if (!isRunning) return;
 
   clearInterval(timerId);
   timerId = null;
   isRunning = false;
 
-  // 「ゴールせず再スタート」のケースではgoalMsがundefinedの可能性あり
   let finalMs;
   if (typeof goalMs === "number") {
     finalMs = goalMs;
   } else {
-    // デバイスから特にgoal時間が来なかった場合は、こちらで計測していた値を使う
     finalMs = Date.now() - startTime;
   }
 
   // ストップウォッチ表示をゴールタイムに固定
   stopwatchEl.textContent = formatTime(finalMs);
+
+  // recordLap=falseの場合、ここでリターンするかどうかは好みで決定
+  if (!recordLap) {
+    return;
+  }
+
+  // ラップ記録する場合のみ以下を実行
 
   // ベストラップ更新チェック
   if (finalMs < bestLapTime) {
@@ -163,7 +175,9 @@ function stopStopwatch(goalMs) {
   appendLapTime(finalMs);
 }
 
-// ラップタイム一覧に1行追加
+/**
+ * ラップタイム一覧に1行追加
+ */
 function appendLapTime(ms) {
   const newLine = formatTime(ms);
   lapListEl.textContent += newLine + "\n";
@@ -171,9 +185,11 @@ function appendLapTime(ms) {
   lapListEl.scrollTop = lapListEl.scrollHeight;
 }
 
-// mm:ss.000 形式にフォーマットする関数
+/**
+ * mm:ss.000 形式にフォーマットする関数
+ */
 function formatTime(milliseconds) {
-  const ms = Math.floor(milliseconds) % 1000;    // 小数点が出た場合、切り捨て
+  const ms = Math.floor(milliseconds) % 1000;
   const totalSec = Math.floor(milliseconds / 1000);
   const sec = totalSec % 60;
   const min = Math.floor(totalSec / 60);
