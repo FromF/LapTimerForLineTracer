@@ -1,38 +1,34 @@
 /*
-  IR ブレークビームを想定した区間時間計測サンプルコード (M5StickC 用)
+  IR ブレークビームを想定した区間時間計測サンプルコード (Arduino Nano Every 用)
 
   【概要】
-   - 本コードでは、本来デジタルピン 2（スタートライン）、3（ゴールライン）に接続する
-     IR ブレークビームセンサーを想定しています。
-   - しかし、M5StickC 上で実行するために、ここではセンサー入力を M5StickC のボタンで
-     シミュレートしています。（BtnA → スタートライン通過、BtnB → ゴールライン通過）
-   - スタートラインを通過した時点で start_time（micros）を記録し、
-     ゴールライン通過時点で end_time を記録して計測区間の時間を求めます。
-   - 計測結果は Serial モニタと M5StickC の LCD に表示されます。
-   - 実際の IR センサーを使用する場合は、該当箇所の pinMode() や digitalRead() を有効にし、
-     センサーの出力ロジックに合わせて検出タイミングを調整してください。
+   - デジタルピン 2（スタートライン）、3（ゴールライン）に接続された
+     IR ブレークビームセンサーを想定し、区間通過時間を計測します。
+   - スタートラインを通過した時点で start_time（micros()）を記録し、
+     ゴールラインを通過した時点で end_time（micros()）を記録して、
+     区間の経過時間を算出します。
+   - 計測結果はシリアルモニタ（115200 bps）に出力します。
 
-  【センサー想定仕様】（仮）
+  【センサー想定仕様】（例）
    - デジタルピン 2：スタートセンサー
    - デジタルピン 3：ゴールセンサー
-   - INPUT_PULLUP 利用時：
-     センサー出力はビームが「通過」すると LOW、ビームが「遮断」されている時は HIGH。
-     （実際のセンサー仕様によってはこの限りではありません）
+   - INPUT_PULLUP を使用し、通常時は HIGH、ビームが通過すると LOW になる想定。
+     （実際のセンサー仕様によって動作を変更してください）
 
   【計測の流れ】
-   1) スタートライン（BtnA）を通過した瞬間に start_time = micros() を記録。
-   2) ゴールライン（BtnB）を通過した瞬間に end_time = micros() を記録。
-   3) (end_time - start_time) で区間時間を算出して表示。
-   4) 次の計測を行うには、再度スタートラインを通過する（BtnA を押す）ところから始まります。
+   1) スタートラインを通過（センサー出力が LOW → HIGH に変化）した瞬間、
+      start_time = micros() を記録。
+   2) ゴールラインを通過（センサー出力が LOW → HIGH に変化）した瞬間、
+      end_time = micros() を記録。
+   3) (end_time - start_time) で区間時間を求め、シリアルモニタに表示する。
+   4) 次の計測時は再度スタートラインの通過から始まる。
 
   【注意事項】
-   - ボタンA、B は 「wasReleased()」で押下を判定しています。
-   - 本コードはサンプルであり、実際の競技や計測に用いる場合は誤差や環境ノイズを考慮して
-     処理を調整してください。
-
-  【出力例 (シリアル/LCD)】
-   - "start" （スタートライン通過検出）
-   - "goal,123456" （ゴールライン到達時の区間時間 microseconds 単位）
+   - micros() 関数はマイクロ秒単位で時間を返しますが、誤差やオーバーフローに注意してください。
+   - センサーのロジック（HIGH/LOW のタイミング）は機種によって異なる場合があるため、
+     必要に応じて変更してください。
+   - 実際の競技や試験で使用する場合は環境ノイズ等を考慮し、ハードウェアやソフトウェア的な
+     デバウンスやフィルタなどを検討してください。
 */
 
 unsigned long start_time = 0; 
@@ -43,9 +39,9 @@ unsigned long current_time = 0;
 bool start_triggered = false;
 bool end_triggered   = false;
 
-// 実機センサー使用時のピン設定（現在はコメントアウト）
-const int startSensorPin = 2;  // スタートセンサー用
-const int endSensorPin   = 3;  // ゴールセンサー用
+// ピン設定
+const int startSensorPin = 2;  // スタートセンサー
+const int endSensorPin   = 3;  // ゴールセンサー
 
 // センサーの前回状態を保持するための変数
 // pullup で HIGH、ビーム通過で LOW に変化する場合を想定（実機に合わせて要修正）
@@ -54,34 +50,33 @@ int lastEndState   = HIGH;
 
 void setup() {
   Serial.begin(115200);
-  
+
+  // 入力ピンをプルアップに設定
   pinMode(startSensorPin, INPUT_PULLUP);
   pinMode(endSensorPin, INPUT_PULLUP);
-  
+
+  // 初期状態を取得
   lastStartState = digitalRead(startSensorPin);
   lastEndState   = digitalRead(endSensorPin);
 }
 
 void loop() {
-  // センサー出力を取得
+  // 現在のセンサー状態を読み取り
   int currentStartState = digitalRead(startSensorPin);
   int currentEndState   = digitalRead(endSensorPin);
 
   // スタートライン通過検出
-  // 例：センサー出力が「LOW→HIGH」へ変化したとき通過とみなす（実際のセンサー仕様に応じて変更）
+  // 例：LOW → HIGH の立ち上がりで通過とみなす（センサー仕様に応じて変更）
   if (lastStartState == LOW && currentStartState == HIGH) {
-    // スタートライン通過時刻を記録
     start_time = micros();
     start_triggered = true;
     end_triggered   = false;
-
     Serial.println("start");
   }
 
   // ゴールライン通過検出
   if (start_triggered && !end_triggered) {
     if (lastEndState == LOW && currentEndState == HIGH) {
-      // ゴールライン通過時刻を記録
       end_time = micros();
       end_triggered = true;
       
