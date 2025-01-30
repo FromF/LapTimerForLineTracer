@@ -11,11 +11,14 @@ let outputDone;
 /* ---------------------------------
    計測まわりの変数
 ----------------------------------- */
-let isRunning = false;      // ストップウォッチ計測中かどうか
-let startTime = 0;          // 計測開始時刻 (Date.now())
-let timerId = null;         // setIntervalのID
-let bestLapTime = Infinity; // ベストラップ(ミリ秒)
-let laps = [];              // ラップタイムのリスト(ミリ秒)
+let isRunning = false;        // ストップウォッチ計測中かどうか
+let startTime = 0;            // 計測開始時刻 (Date.now())
+let timerId = null;           // setIntervalのID
+let bestLapTime = Infinity;   // ベストラップ(ミリ秒)
+let laps = [];                // ラップタイムのリスト(ミリ秒)
+let lastStartMessageTime = 0; // 前回の start を受け取ったタイムスタンプ
+
+const START_IGNORE_DURATION_MS = 5000; // startメッセージを無視する時間(ミリ秒):5秒
 
 // 要素の取得
 const connectBtn   = document.getElementById('connectBtn');
@@ -114,6 +117,16 @@ async function readLoop() {
  */
 function handleDeviceMessage(msg) {
   if (msg === "start") {
+    // 前回のstartとの時間差をチェック
+    const now = Date.now();
+    if (now - lastStartMessageTime < START_IGNORE_DURATION_MS) {
+      // まだ十分時間が経っていないので無視する
+      console.log("Ignoring 'start' message because it's within the ignore duration.");
+      return;
+    }
+    // ここまで来たら有効なstartなので、lastStartMessageTimeを更新
+    lastStartMessageTime = now;
+
     // もし既に走行中ならゴールしないまま再度スタートが来た、ということなので
     // ラップ記録しない (recordLap=false) でストップウォッチを停止
     if (isRunning) {
@@ -121,6 +134,9 @@ function handleDeviceMessage(msg) {
     }
     startStopwatch();
   } else if (msg.startsWith("goal,")) {
+    // startメッセージをすぐに受信できるように初期化
+    lastStartMessageTime = 0;
+
     const parts = msg.split(",");
     if (parts.length === 2) {
       // カンマ以降は区間時間(マイクロ秒: μs)なので
