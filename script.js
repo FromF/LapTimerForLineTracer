@@ -23,6 +23,7 @@ const clearLapsBtn = document.getElementById('clearLapsBtn');
 const stopwatchEl  = document.getElementById('stopwatch');
 const bestLapEl    = document.getElementById('bestLap');
 const lapListEl    = document.getElementById('lapList');
+const copyLapBtn   = document.getElementById('copyLapBtn');
 
 /* ---------------------------------
    ボタンのイベント設定
@@ -65,6 +66,24 @@ clearLapsBtn.addEventListener('click', () => {
   lapListEl.textContent = "";
   bestLapTime = Infinity;
   bestLapEl.textContent = "--:--.---";
+});
+
+// ラップタイム一覧をコピー
+copyLapBtn.addEventListener('click', () => {
+  const lapText = lapListEl.textContent; // ラップタイム一覧のテキストを取得
+  if (!lapText.trim()) {
+    alert("コピーするラップタイムがありません。");
+    return;
+  }
+  // クリップボードへ書き込み
+  navigator.clipboard.writeText(lapText)
+    .then(() => {
+      alert("ラップ一覧をコピーしました");
+    })
+    .catch((err) => {
+      console.error("コピーに失敗しました: ", err);
+      alert("コピーに失敗しました");
+    });
 });
 
 /* ---------------------------------
@@ -157,7 +176,7 @@ function stopStopwatch(goalMs, recordLap = true) {
   // ストップウォッチ表示をゴールタイムに固定
   stopwatchEl.textContent = formatTime(finalMs);
 
-  // recordLap=falseの場合、ここでリターンするかどうかは好みで決定
+  // recordLap=falseの場合はここで終了
   if (!recordLap) {
     return;
   }
